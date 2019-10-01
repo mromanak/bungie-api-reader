@@ -1,0 +1,1075 @@
+Index: src/main/node/scratchpads/weaponChain.js
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/node/scratchpads/weaponChain.js	(date 1563220776000)
++++ src/main/node/scratchpads/weaponChain.js	(date 1563220776000)
+@@ -213,6 +213,28 @@
+     return this
+   }
+ 
++  addRawDisplayStats (...statNames) {
++    if (!this.isExpanded) {
++      throw new Error(
++        'addRawDisplayStats() cannot be called before toConfigurations()')
++    }
++
++    this.chain = this.chain.each((config) => {
++      if (!_.has(config, 'rawStats')) {
++        config.rawStats = {}
++      }
++
++      for (let statName of statNames) {
++        let statId = this.context.getStatIdByName(statName)
++        let rawValue = config.weapon.statBlock.getRawStat(statId)
++        let statGroup = this.context.getStatGroupById(config.weapon.statGroupId)
++        let rawDisplayValue = statGroup.interpolate(statId, rawValue)
++        config.rawStats[statName] = rawDisplayValue
++      }
++    })
++    return this
++  }
++
+   thatCanHaveMods (...nameSpecs) {
+     let plugSpecs = this.context.plugSpecForModNames(...nameSpecs)
+     if (this.isExpanded) {
+@@ -250,6 +272,10 @@
+     return this
+   }
+ 
++  map (mappingFunction) {
++    return this.chain.map(mappingFunction)
++  }
++
+   getChain () {
+     return this.chain
+   }
+Index: src/main/node/scratchpads/weaponFinder.js
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/node/scratchpads/weaponFinder.js	(date 1563207627000)
++++ src/main/node/scratchpads/weaponFinder.js	(date 1563207627000)
+@@ -1,8 +1,5 @@
+ const _ = require('lodash')
+ const ApiContext = require('../apiContext')
+-const Mod = require('../mod')
+-const Stat = require('../stat')
+-const Weapon = require('../weapon')
+ const WeaponChain = require('./weaponChain')
+ 
+ const knex = require('knex')({
+@@ -32,9 +29,9 @@
+     let obj = new WeaponChain(context, context.getAllWeapons()).
+       withTypes('Fusion Rifle').
+       toConfigurations().
+-      thatUseMods(
+-        ['Tap the Trigger', 'Under Pressure', 'High-Impact Reserves', 'Backup Plan'],
+-        ['Tap the Trigger', 'Under Pressure', 'High-Impact Reserves', 'Backup Plan']
++      thatCanHaveMods(
++        'Tap the Trigger',
++        'Under Pressure'
+         ).
+       sortedBy([
+         // geometricMeanSort('Rounds Per Minute'),
+Index: src/main/node/scratchpads/weaponFinder.2.js
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/node/scratchpads/weaponFinder.2.js	(date 1563228750000)
++++ src/main/node/scratchpads/weaponFinder.2.js	(date 1563228750000)
+@@ -0,0 +1,192 @@
++const _ = require('lodash')
++const ApiContext = require('../apiContext')
++const createCsvStringifier = require('csv-writer').createObjectCsvStringifier
++const WeaponChain = require('./weaponChain')
++
++const knex = require('knex')({
++  client: 'sqlite3',
++  useNullAsDefault: true,
++  connection: {
++    filename: '/Users/mromanak13/Downloads/bungie/bungie/current'
++  }
++})
++const context = new ApiContext(knex)
++const inverseRegex = /^inv:(.*)/
++
++let displayStats = ['Range', 'Stability', 'Aim Assistance']
++let calculatedStats = [
++  namedCustomStat('Stickiness', geometricMeanOf(...displayStats)),
++  namedCustomStat('Mods', modsContributing(...displayStats))
++]
++const csvStringifier = createCsvStringifier({
++  header: [
++    {id: 'id', title: 'ID'},
++    {id: 'name', title: 'Name'},
++    {id: 'rarity', title: 'Rarity'},
++    {id: 'rollType', title: 'Roll Type'},
++    {id: 'type', title: 'Type'},
++    {id: 'detailedArchetype', title: 'Archetype'},
++    {id: 'damageType', title: 'Damage Type'},
++    ..._.map(calculatedStats, (stat) => {return {id: stat.name, title: stat.name}}),
++    // ..._.map(displayStats, (statName) => {return {id: statName, title: statName}})
++  ]
++})
++
++context.ready().
++  then(() => {
++    let obj = new WeaponChain(context, context.getAllWeapons()).
++      // withTypes('Hand Cannon').
++      withNamesMatching(/^[^,]+$/).
++      withStats(...displayStats, 'Rounds Per Minute').
++      toConfigurations().
++      addRawDisplayStats('Rounds Per Minute', 'Impact').
++      sortedBy([
++        geometricMeanSort(...displayStats)
++      ], 'desc').
++      uniqueByWeaponId().
++      sortedBy([
++        (config) => config.weapon.type,
++        (config) => config.rawStats['Rounds Per Minute'],
++        (config) => config.rawStats['Impact'],
++        detailedArchetypeSort,
++        (config) => config.weapon.damageTypeId
++      ], 'asc', 'asc', 'desc', 'asc', 'asc').
++      map(configToCsvPrintable(...calculatedStats)).
++      uniqBy((obj) => {
++        let differentiators = [
++          obj.bucket,
++          obj.type,
++          obj.rarity === 'Exotic' ? 'Exotic' : obj.archetypeId
++          obj['Raw Rounds Per Minute'],
++          obj['Raw Impact'],
++          obj.damageType
++        ]
++        return differentiators.join('/')
++      }).
++      values()
++
++    console.log(csvStringifier.getHeaderString().trim())
++    console.log(csvStringifier.stringifyRecords(obj))
++  }).
++  catch((err) => console.error(err.stack)).
++  finally(() => knex.destroy())
++
++function configToCsvPrintable (...customStats) {
++  return function (config) {
++    let csvPrintable = {
++      name: config.weaponName,
++      id: config.weaponId,
++      bucket: config.weapon.bucket,
++      rarity: config.weapon.tier,
++      rollType: config.isCurated ? 'Fixed' : 'Random',
++      type: config.weapon.type,
++      archetypeId: config.weapon.rolls.intrinsicPlugId,
++      archetype: archetypeForConfig(config),
++      detailedArchetype: detailedArchetypeForConfig(config),
++      damageType: config.weapon.damageType
++    }
++
++    _.each(config.displayStats, (statValue, statName) => {
++      csvPrintable[statName] = statValue
++    })
++
++    _.each(config.rawStats, (statValue, statName) => {
++      csvPrintable[`Raw ${statName}`] = statValue
++    })
++
++    _.each(customStats, (customStat) => {
++      csvPrintable[customStat.name] = customStat.valueFunction(config)
++    })
++
++    return csvPrintable
++  }
++}
++
++function archetypeForConfig (config) {
++  if (config.weapon.tier === 'Exotic') {
++    return 'Exotic'
++  }
++  return context.getModById(config.weapon.rolls.intrinsicPlugId).name
++}
++
++function detailedArchetypeForConfig (config) {
++  let baseName = archetypeForConfig(config)
++
++  if (_.has(config, 'rawStats') && _.has(config.rawStats, 'Rounds Per Minute')) {
++    return `${baseName} (${config.rawStats['Rounds Per Minute']} RPM)`
++  } else if (_.has(config.displayStats, 'Rounds Per Minute')) {
++    return `${baseName} (${config.displayStats['Rounds Per Minute']} RPM)`
++  }
++  return baseName
++}
++
++function detailedArchetypeSort (config) {
++  let detailedArchetype = detailedArchetypeForConfig(config)
++  if (/^Exotic/.test(detailedArchetype)) {
++    return `ZZZ${detailedArchetype}`
++  }
++  return `${detailedArchetype}/${config.weapon.rolls.intrinsicPlugId}`
++}
++
++function geometricMeanOf (...statNames) {
++  return function (config) {
++    let product = 1
++    for (let statName of statNames) {
++      let inverse = false
++      if (inverseRegex.test(statName)) {
++        inverse = true
++        statName = inverseRegex.exec(statName)[1]
++      }
++
++      if (!_.has(config.displayStats, statName)) {
++        throw new Error(
++          `${config.weaponName} (${config.weaponId}) does not have a stat named ${statName}. Available stat names are: ${_.keys(
++            config.displayStats).join(', ')}.`)
++      }
++
++      if (inverse) {
++        product /= config.displayStats[statName]
++      } else {
++        product *= config.displayStats[statName]
++      }
++    }
++    return product ** (1 / statNames.length)
++  }
++}
++
++function geometricMeanOfStats (config, ...statNames) {
++  return geometricMeanOf(...statNames)(config)
++}
++
++function geometricMeanSort (...statNames) {
++  return function (config) {
++    return geometricMeanOfStats(config, ...statNames)
++  }
++}
++
++function modsContributing (...statNames) {
++  return function (config) {
++    let contributingModLists = []
++    for (let statName of statNames) {
++      if (inverseRegex.test(statName)) {
++        statName = inverseRegex.exec(statName)[1]
++      }
++
++      if (_.has(config.modContributions, statName)) {
++        contributingModLists.push(config.modContributions[statName])
++      }
++    }
++
++    if (_.isEmpty(contributingModLists)) {
++      return '-'
++    }
++    return _.union(...contributingModLists).join('/')
++  }
++}
++
++function namedCustomStat (name, valueFunction) {
++  return {
++    name,
++    valueFunction
++  }
++}
+Index: src/main/node/node_modules/csv-write-stream/cli.js
+===================================================================
+--- src/main/node/node_modules/csv-write-stream/cli.js	(date 0)
++++ src/main/node/node_modules/csv-write-stream/cli.js	(date 0)
+@@ -1,39 +0,0 @@
+-#!/usr/bin/env node
+-var ArgumentParser = require('argparse').ArgumentParser
+-var csv = require('./')
+-var ndj = require('ndjson')
+-var packageInfo = require('./package')
+-
+-argparser = new ArgumentParser({
+-  addHelp: true,
+-  description: packageInfo.description + ' JSON is read from STDIN, formatted' +
+-  ' to CSV, and written to STDOUT.',
+-  version: packageInfo.version
+-})
+-
+-argparser.addArgument(['--separator'], {
+-  help: "The separator character to use. Defaults to ','.",
+-  defaultValue: ','
+-})
+-argparser.addArgument(['--newline'], {
+-  help: "The newline character to use. Defaults to $'\\n'.",
+-  defaultValue: '\n'
+-})
+-argparser.addArgument(['--headers'], {
+-  nargs: '+',
+-  help: 'The list of headers to use. If omitted, the keys of the first row ' +
+-  'written to STDIN will be used',
+-})
+-argparser.addArgument(['--no-send-headers'], {
+-  action: 'storeFalse',
+-  help: "Don't print the header row.",
+-  defaultValue: true,
+-  dest: 'sendHeaders'
+-})
+-
+-args = argparser.parseArgs()
+-
+-process.stdin
+-  .pipe(ndj.parse())
+-  .pipe(csv(args))
+-  .pipe(process.stdout)
+Index: src/main/node/node_modules/csv-write-stream/LICENSE
+===================================================================
+--- src/main/node/node_modules/csv-write-stream/LICENSE	(date 0)
++++ src/main/node/node_modules/csv-write-stream/LICENSE	(date 0)
+@@ -1,8 +0,0 @@
+-Copyright (c) 2014, Max Ogden
+-All rights reserved.
+-
+-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+-
+-Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+-Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Index: src/main/node/node_modules/csv-write-stream/test.js
+===================================================================
+--- src/main/node/node_modules/csv-write-stream/test.js	(date 0)
++++ src/main/node/node_modules/csv-write-stream/test.js	(date 0)
+@@ -1,172 +0,0 @@
+-var test = require('tape')
+-var csv = require('./')
+-var concat = require('concat-stream')
+-
+-test('encode from basic array', function(t) {
+-  var writer = csv({ headers: ["hello", "foo"]})
+-
+-  writer.pipe(concat(function(data) {
+-    t.equal('hello,foo\nworld,bar\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write(["world", "bar"])
+-  writer.end()
+-})
+-
+-test('encode from array w/ escaped quotes in header row', function(t) {
+-  var writer = csv({ headers: ['why "hello" there', "foo"]})
+-
+-  writer.pipe(concat(function(data) {
+-    t.equal('"why ""hello"" there",foo\nworld,bar\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write(["world", "bar"])
+-  writer.end()
+-})
+-
+-test('encode from array w/ escaped quotes in cells', function(t) {
+-  var writer = csv({ headers: ["hello", "foo"]})
+-
+-  writer.pipe(concat(function(data) {
+-    t.equal('hello,foo\nworld,"this is an ""escaped"" cell"\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write(["world", 'this is an "escaped" cell'])
+-  writer.end()
+-})
+-
+-test('encode from array w/ escaped newline in cells', function(t) {
+-  var writer = csv({ headers: ["hello", "foo"]})
+-
+-  writer.pipe(concat(function(data) {
+-    t.equal('hello,foo\nworld,"this is a\nmultiline cell"\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write(["world", 'this is a\nmultiline cell'])
+-  writer.end()
+-})
+-
+-test('encode from array w/ escaped comma in cells', function(t) {
+-  var writer = csv({ headers: ["hello", "foo"]})
+-
+-  writer.pipe(concat(function(data) {
+-    t.equal('hello,foo\nworld,"this is a cell with, commas, in it"\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write(["world", 'this is a cell with, commas, in it'])
+-  writer.end()
+-})
+-
+-test('encode from object w/ headers specified', function(t) {
+-  var writer = csv({ headers: ["hello", "foo"]})
+-
+-  writer.pipe(concat(function(data) {
+-    t.equal('hello,foo\nworld,bar\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write({hello: "world", foo: "bar", baz: "taco"})
+-  writer.end()
+-})
+-
+-test('encode from object w/ auto headers', function(t) {
+-  var writer = csv()
+-
+-  writer.pipe(concat(function(data) {
+-    t.equal('hello,foo,baz\nworld,bar,taco\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write({hello: "world", foo: "bar", baz: "taco"})
+-  writer.end()
+-})
+-
+-test('no headers specified', function(t) {
+-  var writer = csv()
+-
+-  writer.on('error', function(err) {
+-    t.equal(err.message, 'no headers specified')
+-    t.end()
+-  })
+-
+-  writer.write(['foo', 'bar'])
+-  writer.end()
+-})
+-
+-test('no headers displayed', function(t) {
+-  var writer = csv({sendHeaders: false})
+-
+-  writer.pipe(concat(function(data) {
+-    t.equal('world,bar,taco\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write({hello: "world", foo: "bar", baz: "taco"})
+-  writer.end()
+-})
+-
+-test('serialize falsy values', function (t) {
+-  // see https://github.com/maxogden/csv-write-stream/issues/8#issuecomment-41873534
+-  var writer = csv({
+-    headers: ['boolean','string','number','null','undefined'],
+-    sendHeaders: false
+-  })
+-  writer.pipe(concat(function (data) {
+-    t.equal('false,false,0,,\n', data.toString())
+-    t.end()
+-  }))
+-
+-  writer.write([false,'false',0,null,undefined])
+-  writer.end()
+-})
+-
+-test('handle objects and arrays', function (t) {
+-  var writer = csv({sendHeaders: false})
+-
+-  writer.pipe(concat(function (data) {
+-    t.equal(data, '1,"1,2,3",[object Object]\n')
+-    t.end()
+-  }))
+-
+-  writer.write({a: 1, b: [1,2,3], c: {d: 1}})
+-  writer.end()
+-
+-})
+-
+-test('destroy with error', function (t) {
+-  var writer = csv({sendHeaders: false})
+-
+-  t.plan(2)
+-
+-  writer.pipe(concat(function (data) {
+-    t.equal(data, '1,2\n', 'date received')
+-  }))
+-
+-  writer.on('error', function (err) {
+-    writer.end()
+-    t.equal(err.message, 'error')
+-  })
+-
+-  writer.write({a: 1, b : 2})
+-  writer.destroy(new Error('error'))
+-
+-})
+-
+-test('lots of cols', function (t) {
+-  var writer = csv()
+-  var obj = {}
+-
+-  writer.pipe(concat(function (data) {
+-    t.equal(data, Object.keys(obj).join(',') + '\n' + Object.keys(obj).join(',') + '\n')
+-    t.end()
+-  }))
+-
+-  for (var i = 0; i < 5000; i++) obj[i] = '' + i
+-  writer.write(obj)
+-  writer.end()
+-})
+Index: src/main/node/node_modules/csv-write-stream/bench.js
+===================================================================
+--- src/main/node/node_modules/csv-write-stream/bench.js	(date 0)
++++ src/main/node/node_modules/csv-write-stream/bench.js	(date 0)
+@@ -1,24 +0,0 @@
+-var csv = require('./')
+-
+-var c = csv()
+-var obj = {
+-  hello: 'world',
+-  hej: 'med dig',
+-  lol: 'lulz',
+-  nu: 'yolo'
+-}
+-
+-var i = 0
+-
+-c.on('data', function(data) {
+-  i++
+-})
+-
+-c.on('end', function() {
+-  console.log(i+' rows, time: '+(Date.now() - now))
+-})
+-
+-var now = Date.now()
+-
+-for (var i = 0; i < 2000000; i++) c.write(obj)
+-c.end()
+Index: src/main/node/node_modules/csv-write-stream/index.js
+===================================================================
+--- src/main/node/node_modules/csv-write-stream/index.js	(date 0)
++++ src/main/node/node_modules/csv-write-stream/index.js	(date 0)
+@@ -1,99 +0,0 @@
+-var stream = require('stream')
+-var util = require('util')
+-var gen = require('generate-object-property')
+-
+-var CsvWriteStream = function(opts) {
+-  if (!opts) opts = {}
+-  stream.Transform.call(this, {objectMode:true, highWaterMark:16})
+-
+-  this.sendHeaders = opts.sendHeaders !== false
+-  this.headers = opts.headers || null
+-  this.separator = opts.separator || opts.seperator || ','
+-  this.newline = opts.newline || '\n'
+-
+-  this._objRow = null
+-  this._arrRow = null
+-  this._first = true
+-  this._destroyed = false
+-}
+-
+-util.inherits(CsvWriteStream, stream.Transform)
+-
+-CsvWriteStream.prototype._compile = function(headers) {
+-  var newline = this.newline
+-  var sep = this.separator
+-  var str = 'function toRow(obj) {\n'
+-
+-  if (!headers.length) str += '""'
+-
+-  headers = headers.map(function(prop, i) {
+-    str += 'var a'+i+' = '+prop+' == null ? "" : '+prop+'\n'
+-    return 'a'+i
+-  })
+-
+-  for (var i = 0; i < headers.length; i += 500) { // do not overflowi the callstack on lots of cols
+-    var part = headers.length < 500 ? headers : headers.slice(i, i + 500)
+-    str += i ? 'result += "'+sep+'" + ' : 'var result = '
+-    part.forEach(function(prop, j) {
+-      str += (j ? '+"'+sep+'"+' : '') + '(/['+sep+'\\r\\n"]/.test('+prop+') ? esc('+prop+'+"") : '+prop+')'
+-    })
+-    str += '\n'
+-  }
+-
+-  str += 'return result +'+JSON.stringify(newline)+'\n}'
+-
+-  return new Function('esc', 'return '+str)(esc)
+-}
+-
+-CsvWriteStream.prototype._transform = function(row, enc, cb) {
+-  var isArray = Array.isArray(row)
+-
+-  if (!isArray && !this.headers) this.headers = Object.keys(row)
+-
+-  if (this._first && this.headers) {
+-    this._first = false
+-
+-    var objProps = []
+-    var arrProps = []
+-    var heads = []
+-
+-    for (var i = 0; i < this.headers.length; i++) {
+-      arrProps.push('obj['+i+']')
+-      objProps.push(gen('obj', this.headers[i]))
+-    }
+-
+-    this._objRow = this._compile(objProps)
+-    this._arrRow = this._compile(arrProps)
+-
+-    if (this.sendHeaders) this.push(this._arrRow(this.headers))
+-  }
+-
+-  if (isArray) {
+-    if (!this.headers) return cb(new Error('no headers specified'))
+-    this.push(this._arrRow(row))
+-  } else {
+-    this.push(this._objRow(row))
+-  }
+-
+-  cb()
+-}
+-
+-CsvWriteStream.prototype.destroy = function (err) {
+-  if (this._destroyed) return
+-  this._destroyed = true
+-
+-  var self = this
+-
+-  process.nextTick(function () {
+-    if (err) self.emit('error', err)
+-    self.emit('close')
+-  })
+-}
+-
+-module.exports = function(opts) {
+-  return new CsvWriteStream(opts)
+-}
+-
+-function esc(cell) {
+-  return '"'+cell.replace(/"/g, '""')+'"'
+-}
+Index: src/main/node/node_modules/csv-write-stream/readme.md
+===================================================================
+--- src/main/node/node_modules/csv-write-stream/readme.md	(date 0)
++++ src/main/node/node_modules/csv-write-stream/readme.md	(date 0)
+@@ -1,104 +0,0 @@
+-# csv-write-stream
+-
+-A CSV encoder stream that produces properly escaped CSVs.
+-
+-[![NPM](https://nodei.co/npm/csv-write-stream.png)](https://nodei.co/npm/csv-write-stream/)
+-
+-[![browser support](http://ci.testling.com/maxogden/csv-write-stream.png)](http://ci.testling.com/maxogden/csv-write-stream)
+-
+-A through stream. Write arrays of strings (or JS objects) and you will receive a properly escaped CSV stream out the other end.
+-
+-## usage
+-
+-### var writer = csvWriter([options])
+-
+-```javascript
+-var csvWriter = require('csv-write-stream')
+-var writer = csvWriter()
+-```
+-
+-`writer` is a duplex stream -- you can pipe data to it and it will emit a string for each line of the CSV
+-
+-### default options
+-
+-```javascript
+-{
+-  separator: ',',
+-  newline: '\n',
+-  headers: undefined,
+-  sendHeaders: true
+-}
+-```
+-
+-`headers` can be an array of strings to use as the header row. if you don't specify a header row the keys of the first row written to the stream will be used as the header row IF the first row is an object (see the test suite for more details). if the `sendHeaders` option is set to false, the headers will be used for ordering the data but will never be written to the stream.
+-
+-example of auto headers:
+-
+-```javascript
+-var writer = csvWriter()
+-writer.pipe(fs.createWriteStream('out.csv'))
+-writer.write({hello: "world", foo: "bar", baz: "taco"})
+-writer.end()
+-
+-// produces: hello,foo,baz\nworld,bar,taco\n
+-```
+-
+-example of specifying headers:
+-
+-```javascript
+-var writer = csvWriter({ headers: ["hello", "foo"]})
+-writer.pipe(fs.createWriteStream('out.csv'))
+-writer.write(['world', 'bar'])
+-writer.end()
+-
+-// produces: hello,foo\nworld,bar\n
+-```
+-
+-example of not sending headers:
+-
+-```javascript
+-var writer = csvWriter({sendHeaders: false})
+-writer.pipe(fs.createWriteStream('out.csv'))
+-writer.write({hello: "world", foo: "bar", baz: "taco"})
+-writer.end()
+-
+-// produces: world,bar,taco\n
+-```
+-
+-see the test suite for more examples
+-
+-## run the test suite
+-
+-```bash
+-$ npm install
+-$ npm test
+-```
+-
+-## cli usage
+-
+-This module also includes a CLI, which you can pipe [ndjson](http://ndjson.org) to stdin and it will print csv on stdout. You can install it with `npm install -g csv-write-stream`.
+-
+-```bash
+-$ csv-write --help
+-usage: csv-write [-h] [-v] [--separator SEPARATOR] [--newline NEWLINE]
+-                 [--headers HEADERS [HEADERS ...]] [--no-send-headers]
+-
+-
+-A CSV encoder stream that produces properly escaped CSVs. JSON is read from
+-STDIN, formatted to CSV, and written to STDOUT.
+-
+-Optional arguments:
+-  -h, --help            Show this help message and exit.
+-  -v, --version         Show program's version number and exit.
+-  --separator SEPARATOR
+-                        The separator character to use. Defaults to ','.
+-  --newline NEWLINE     The newline character to use. Defaults to $'\n'.
+-  --headers HEADERS [HEADERS ...]
+-                        The list of headers to use. If omitted, the keys of
+-                        the first row written to STDIN will be used
+-  --no-send-headers     Don't print the header row.
+-```
+-
+-```bash
+-$ cat example.ndjson | csv-write > example.csv
+-```
+Index: src/main/node/node_modules/csv-write-stream/package.json
+===================================================================
+--- src/main/node/node_modules/csv-write-stream/package.json	(date 0)
++++ src/main/node/node_modules/csv-write-stream/package.json	(date 0)
+@@ -1,75 +0,0 @@
+-{
+-  "_from": "csv-write-stream",
+-  "_id": "csv-write-stream@2.0.0",
+-  "_inBundle": false,
+-  "_integrity": "sha1-/C2iGkjW6l+MF/3jnPuRHk8CkrA=",
+-  "_location": "/csv-write-stream",
+-  "_phantomChildren": {},
+-  "_requested": {
+-    "type": "tag",
+-    "registry": true,
+-    "raw": "csv-write-stream",
+-    "name": "csv-write-stream",
+-    "escapedName": "csv-write-stream",
+-    "rawSpec": "",
+-    "saveSpec": null,
+-    "fetchSpec": "latest"
+-  },
+-  "_requiredBy": [
+-    "#USER",
+-    "/"
+-  ],
+-  "_resolved": "https://registry.npmjs.org/csv-write-stream/-/csv-write-stream-2.0.0.tgz",
+-  "_shasum": "fc2da21a48d6ea5f8c17fde39cfb911e4f0292b0",
+-  "_spec": "csv-write-stream",
+-  "_where": "/Users/mromanak13/Work/Git/bungie-api-reader/src/main/node",
+-  "author": {
+-    "name": "max ogden"
+-  },
+-  "bin": {
+-    "csv-write": "cli.js"
+-  },
+-  "bugs": {
+-    "url": "https://github.com/maxogden/csv-write-stream/issues"
+-  },
+-  "bundleDependencies": false,
+-  "dependencies": {
+-    "argparse": "^1.0.7",
+-    "generate-object-property": "^1.0.0",
+-    "ndjson": "^1.3.0"
+-  },
+-  "deprecated": false,
+-  "description": "A CSV encoder stream that produces properly escaped CSVs.",
+-  "devDependencies": {
+-    "concat-stream": "~1.4.1",
+-    "tape": "~2.3.2"
+-  },
+-  "homepage": "https://github.com/maxogden/csv-write-stream",
+-  "license": "BSD-2-Clause",
+-  "main": "index.js",
+-  "name": "csv-write-stream",
+-  "repository": {
+-    "type": "git",
+-    "url": "git+ssh://git@github.com/maxogden/csv-write-stream.git"
+-  },
+-  "scripts": {
+-    "test": "node test.js"
+-  },
+-  "testling": {
+-    "files": "test.js",
+-    "browsers": [
+-      "ie/8..latest",
+-      "firefox/17..latest",
+-      "firefox/nightly",
+-      "chrome/22..latest",
+-      "chrome/canary",
+-      "opera/12..latest",
+-      "opera/next",
+-      "safari/5.1..latest",
+-      "ipad/6.0..latest",
+-      "iphone/6.0..latest",
+-      "android-browser/4.2..latest"
+-    ]
+-  },
+-  "version": "2.0.0"
+-}
+Index: src/main/node/node_modules/csv-write-stream/collaborators.md
+===================================================================
+--- src/main/node/node_modules/csv-write-stream/collaborators.md	(date 0)
++++ src/main/node/node_modules/csv-write-stream/collaborators.md	(date 0)
+@@ -1,9 +0,0 @@
+-## Collaborators
+-
+-csv-write-stream is only possible due to the excellent work of the following collaborators:
+-
+-<table><tbody><tr><th align="left">maxogden</th><td><a href="https://github.com/maxogden">GitHub/maxogden</a></td></tr>
+-<tr><th align="left">mafintosh</th><td><a href="https://github.com/mafintosh">GitHub/mafintosh</a></td></tr>
+-<tr><th align="left">finnp</th><td><a href="https://github.com/finnp">GitHub/finnp</a></td></tr>
+-<tr><th align="left">slang800</th><td><a href="https://github.com/slang800">GitHub/slang800</a></td></tr>
+-</tbody></table>
+Index: src/main/node/package.json
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/node/package.json	(date 1563207945000)
++++ src/main/node/package.json	(date 1563207945000)
+@@ -11,8 +11,11 @@
+   "dependencies": {
+     "bankers-rounding": "^0.1.3",
+     "bluebird": "^3.5.3",
++    "csv": "^5.1.1",
++    "csv-writer": "^1.5.0",
+     "knex": "^0.16.3",
+     "lodash": "^4.17.11",
++    "parse": "^2.5.1",
+     "sqlite3": "latest"
+   }
+ }
+Index: src/main/node/package-lock.json
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/main/node/package-lock.json	(date 1563207945000)
++++ src/main/node/package-lock.json	(date 1563207945000)
+@@ -13,6 +13,21 @@
+         "regenerator-runtime": "^0.12.0"
+       }
+     },
++    "@babel/runtime": {
++      "version": "7.5.4",
++      "resolved": "https://registry.npmjs.org/@babel/runtime/-/runtime-7.5.4.tgz",
++      "integrity": "sha512-Na84uwyImZZc3FKf4aUF1tysApzwf3p2yuFBIyBfbzT5glzKTdvYI4KVW4kcgjrzoGUjC7w3YyCHcJKaRxsr2Q==",
++      "requires": {
++        "regenerator-runtime": "^0.13.2"
++      },
++      "dependencies": {
++        "regenerator-runtime": {
++          "version": "0.13.2",
++          "resolved": "https://registry.npmjs.org/regenerator-runtime/-/regenerator-runtime-0.13.2.tgz",
++          "integrity": "sha512-S/TQAZJO+D3m9xeN1WTI8dLKBBiRgXBlTJvbWjCThHWZj9EvHK70Ff50/tYj2J/fvBY6JtFVwRuazHN2E7M9BA=="
++        }
++      }
++    },
+     "@types/bluebird": {
+       "version": "3.5.26",
+       "resolved": "https://registry.npmjs.org/@types/bluebird/-/bluebird-3.5.26.tgz",
+@@ -109,6 +124,11 @@
+       "resolved": "https://registry.npmjs.org/assign-symbols/-/assign-symbols-1.0.0.tgz",
+       "integrity": "sha1-WWZ/QfrdTyDMvCu5a41Pf3jsA2c="
+     },
++    "async-limiter": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/async-limiter/-/async-limiter-1.0.0.tgz",
++      "integrity": "sha512-jp/uFnooOiO+L211eZOoSyzpOITMXx1rBITauYykG3BRYPu8h0UcxsPNB04RR5vo4Tyz3+ay17tR6JVf9qzYWg=="
++    },
+     "asynckit": {
+       "version": "0.4.0",
+       "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
+@@ -365,6 +385,40 @@
+       "resolved": "https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.2.tgz",
+       "integrity": "sha1-tf1UIgqivFq1eqtxQMlAdUUDwac="
+     },
++    "csv": {
++      "version": "5.1.1",
++      "resolved": "https://registry.npmjs.org/csv/-/csv-5.1.1.tgz",
++      "integrity": "sha512-gezB9D+enrh2tLj+vsAD8JyYRMIJdSMpec/Pgbb+7YRj6Q6/D12HLSwjhx+CrirRT4dESjZYXWX1JfqlV4RlTA==",
++      "requires": {
++        "csv-generate": "^3.2.0",
++        "csv-parse": "^4.3.0",
++        "csv-stringify": "^5.1.2",
++        "stream-transform": "^1.0.8"
++      }
++    },
++    "csv-generate": {
++      "version": "3.2.3",
++      "resolved": "https://registry.npmjs.org/csv-generate/-/csv-generate-3.2.3.tgz",
++      "integrity": "sha512-IcR3K0Nx+nJAkcU2eAglVR7DuHnxcuhUM2w2cR+aHOW7bZp2S5LyN2HF3zTkp6BV/DjR6ykoKznUm+AjnWcOKg=="
++    },
++    "csv-parse": {
++      "version": "4.4.3",
++      "resolved": "https://registry.npmjs.org/csv-parse/-/csv-parse-4.4.3.tgz",
++      "integrity": "sha512-TiLGAy14FPJ7/yB+Gn6RgSxoZLpf6pJTRkGqmCt9t/SGVwubrXjbUWtEw39RlKB6hDHzbdjLyBZaysQ0Ji6p/w=="
++    },
++    "csv-stringify": {
++      "version": "5.3.0",
++      "resolved": "https://registry.npmjs.org/csv-stringify/-/csv-stringify-5.3.0.tgz",
++      "integrity": "sha512-VMYPbE8zWz475smwqb9VbX9cj0y4J0PBl59UdcqzLkzXHZZ8dh4Rmbb0ZywsWEtUml4A96Hn7Q5MW9ppVghYzg==",
++      "requires": {
++        "lodash.get": "~4.4.2"
++      }
++    },
++    "csv-writer": {
++      "version": "1.5.0",
++      "resolved": "https://registry.npmjs.org/csv-writer/-/csv-writer-1.5.0.tgz",
++      "integrity": "sha512-Um27xYNzwI6iAXf96tz7j8nnabBbADeDd2cQ5gAjJaXyPrj3C7qX7uCI8Wp8Q+e9rRdkWQ+Sa1J6X5cDyInLWw=="
++    },
+     "dashdash": {
+       "version": "1.14.1",
+       "resolved": "https://registry.npmjs.org/dashdash/-/dashdash-1.14.1.tgz",
+@@ -1130,6 +1184,11 @@
+       "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.11.tgz",
+       "integrity": "sha512-cQKh8igo5QUhZ7lg38DYWAxMvjSAKG0A8wGSVimP07SIUEK2UO+arSRKbRZWtelMtN5V0Hkwh5ryOto/SshYIg=="
+     },
++    "lodash.get": {
++      "version": "4.4.2",
++      "resolved": "https://registry.npmjs.org/lodash.get/-/lodash.get-4.4.2.tgz",
++      "integrity": "sha1-LRd/ZS+jHpObRDjVNBSZ36OCXpk="
++    },
+     "make-iterator": {
+       "version": "1.0.1",
+       "resolved": "https://registry.npmjs.org/make-iterator/-/make-iterator-1.0.1.tgz",
+@@ -1215,9 +1274,9 @@
+       }
+     },
+     "mixin-deep": {
+-      "version": "1.3.1",
+-      "resolved": "https://registry.npmjs.org/mixin-deep/-/mixin-deep-1.3.1.tgz",
+-      "integrity": "sha512-8ZItLHeEgaqEvd5lYBXfm4EZSFCX29Jb9K+lAHhDKzReKBQKj3R+7NOF6tjqYi9t4oI8VUfaWITJQm86wnXGNQ==",
++      "version": "1.3.2",
++      "resolved": "https://registry.npmjs.org/mixin-deep/-/mixin-deep-1.3.2.tgz",
++      "integrity": "sha512-WRoDn//mXBiJ1H40rqa3vH0toePwSsGb45iInWlTySa+Uu4k3tYUSxa2v1KqAiLtvlrSzaExqS1gtk96A9zvEA==",
+       "requires": {
+         "for-in": "^1.0.2",
+         "is-extendable": "^1.0.1"
+@@ -1443,6 +1502,17 @@
+         "os-tmpdir": "^1.0.0"
+       }
+     },
++    "parse": {
++      "version": "2.5.1",
++      "resolved": "https://registry.npmjs.org/parse/-/parse-2.5.1.tgz",
++      "integrity": "sha512-B2Ouq5RY/yV5CcVsBzdKSN94Ltw/W4MbB/5+JJH2YZ+8+Ur+sF2WvfEt4hTSMh/+nLZhMaGZKr+IFrIJogDAjA==",
++      "requires": {
++        "@babel/runtime": "7.5.4",
++        "uuid": "3.3.2",
++        "ws": "7.1.0",
++        "xmlhttprequest": "1.8.0"
++      }
++    },
+     "parse-filepath": {
+       "version": "1.0.2",
+       "resolved": "https://registry.npmjs.org/parse-filepath/-/parse-filepath-1.0.2.tgz",
+@@ -1674,9 +1744,9 @@
+       "integrity": "sha1-BF+XgtARrppoA93TgrJDkrPYkPc="
+     },
+     "set-value": {
+-      "version": "2.0.0",
+-      "resolved": "https://registry.npmjs.org/set-value/-/set-value-2.0.0.tgz",
+-      "integrity": "sha512-hw0yxk9GT/Hr5yJEYnHNKYXkIA8mVJgd9ditYZCe16ZczcaELYYcfvaXesNACk2O8O0nTiPQcQhGUQj8JLzeeg==",
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/set-value/-/set-value-2.0.1.tgz",
++      "integrity": "sha512-JxHc1weCN68wRY0fhCoXpyK55m/XPHafOmK4UWD7m2CI14GMcFypt4w/0+NV5f/ZMby2F6S2wwA7fgynh9gWSw==",
+       "requires": {
+         "extend-shallow": "^2.0.1",
+         "is-extendable": "^0.1.1",
+@@ -1884,6 +1954,11 @@
+         }
+       }
+     },
++    "stream-transform": {
++      "version": "1.0.8",
++      "resolved": "https://registry.npmjs.org/stream-transform/-/stream-transform-1.0.8.tgz",
++      "integrity": "sha512-1q+dL790Ps0NV33rISMq9OLtfDA9KMJZdo1PHZXE85orrWsM4FAh8CVyAOTHO0rhyeM138KNPngBPrx33bFsxw=="
++    },
+     "string-width": {
+       "version": "1.0.2",
+       "resolved": "https://registry.npmjs.org/string-width/-/string-width-1.0.2.tgz",
+@@ -2023,35 +2098,14 @@
+       "integrity": "sha1-5z3T17DXxe2G+6xrCufYxqadUPo="
+     },
+     "union-value": {
+-      "version": "1.0.0",
+-      "resolved": "https://registry.npmjs.org/union-value/-/union-value-1.0.0.tgz",
+-      "integrity": "sha1-XHHDTLW61dzr4+oM0IIHulqhrqQ=",
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/union-value/-/union-value-1.0.1.tgz",
++      "integrity": "sha512-tJfXmxMeWYnczCVs7XAEvIV7ieppALdyepWMkHkwciRpZraG/xwT+s2JN8+pr1+8jCRf80FFzvr+MpQeeoF4Xg==",
+       "requires": {
+         "arr-union": "^3.1.0",
+         "get-value": "^2.0.6",
+         "is-extendable": "^0.1.1",
+-        "set-value": "^0.4.3"
+-      },
+-      "dependencies": {
+-        "extend-shallow": {
+-          "version": "2.0.1",
+-          "resolved": "https://registry.npmjs.org/extend-shallow/-/extend-shallow-2.0.1.tgz",
+-          "integrity": "sha1-Ua99YUrZqfYQ6huvu5idaxxWiQ8=",
+-          "requires": {
+-            "is-extendable": "^0.1.0"
+-          }
+-        },
+-        "set-value": {
+-          "version": "0.4.3",
+-          "resolved": "https://registry.npmjs.org/set-value/-/set-value-0.4.3.tgz",
+-          "integrity": "sha1-fbCPnT0i3H945Trzw79GZuzfzPE=",
+-          "requires": {
+-            "extend-shallow": "^2.0.1",
+-            "is-extendable": "^0.1.1",
+-            "is-plain-object": "^2.0.1",
+-            "to-object-path": "^0.3.0"
+-          }
+-        }
++        "set-value": "^2.0.1"
+       }
+     },
+     "unset-value": {
+@@ -2157,6 +2211,19 @@
+       "resolved": "https://registry.npmjs.org/wrappy/-/wrappy-1.0.2.tgz",
+       "integrity": "sha1-tSQ9jz7BqjXxNkYFvA0QNuMKtp8="
+     },
++    "ws": {
++      "version": "7.1.0",
++      "resolved": "https://registry.npmjs.org/ws/-/ws-7.1.0.tgz",
++      "integrity": "sha512-Swie2C4fs7CkwlHu1glMePLYJJsWjzhl1vm3ZaLplD0h7OMkZyZ6kLTB/OagiU923bZrPFXuDTeEqaEN4NWG4g==",
++      "requires": {
++        "async-limiter": "^1.0.0"
++      }
++    },
++    "xmlhttprequest": {
++      "version": "1.8.0",
++      "resolved": "https://registry.npmjs.org/xmlhttprequest/-/xmlhttprequest-1.8.0.tgz",
++      "integrity": "sha1-Z/4HXFwk/vOfnWX197f+dRcZaPw="
++    },
+     "yallist": {
+       "version": "3.0.3",
+       "resolved": "https://registry.npmjs.org/yallist/-/yallist-3.0.3.tgz",

@@ -1,0 +1,17 @@
+com/mromanak/bungieapireader/config/AuthConfig$1.class
+META-INF/spring-configuration-metadata.json
+com/mromanak/bungieapireader/model/DestinyManifest.class
+com/mromanak/bungieapireader/service/ScratchService.class
+com/mromanak/bungieapireader/model/BungieResponseWrapper.class
+com/mromanak/bungieapireader/model/GearAssetDatabaseDefinition.class
+com/mromanak/bungieapireader/util/TypeUtils$1.class
+com/mromanak/bungieapireader/util/TypeUtils$2.class
+com/mromanak/bungieapireader/controller/AuthController.class
+com/mromanak/bungieapireader/BungieApiReaderApp.class
+com/mromanak/bungieapireader/config/AuthConfig.class
+com/mromanak/bungieapireader/config/AuthConfig$3.class
+com/mromanak/bungieapireader/controller/ScratchController.class
+com/mromanak/bungieapireader/config/AuthConfig$2.class
+com/mromanak/bungieapireader/config/RestConfig.class
+com/mromanak/bungieapireader/service/LocalStorageService.class
+com/mromanak/bungieapireader/util/TypeUtils.class

@@ -1,0 +1,29 @@
+bungie:
+  client:
+    clientId: 22823
+    clientSecret: a90e8282926b40699438a06bf7d516a3
+    accessTokenUri: https://www.bungie.net/Platform/App/OAuth/token/
+    userAuthorizationUri: https://www.bungie.net/en/OAuth/Authorize
+    tokenName: oauth_token
+    authenticationScheme: header
+    clientAuthenticationScheme: query
+
+db:
+  metadata:
+    url: jdbc:sqlite:${com.mromanak.scratchDirectory}/metadata.db
+    driver-class-name: org.sqlite.JDBC
+    type: org.sqlite.SQLiteDataSource
+
+com:
+  mromanak:
+    scratchDirectory: /Users/mromanak13/Downloads/bungie/bungie
+
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-alias: localhost
+    key-store-type: JKS
+    key-store: classpath:mromanak.jks
+    key-store-password: poobus
+  use-forward-headers: true

@@ -1,0 +1,26 @@
+bungie:
+  client:
+    clientId: # Your client ID
+    clientSecret: # Your client secret
+    accessTokenUri: https://www.bungie.net/Platform/App/OAuth/token/
+    userAuthorizationUri: https://www.bungie.net/en/OAuth/Authorize
+    tokenName: oauth_token
+    authenticationScheme: header
+    clientAuthenticationScheme: query
+
+db:
+  metadata:
+    directory: ./data
+    url: jdbc:sqlite:${db.metadata.directory}/metadata.db
+    driver-class-name: org.sqlite.JDBC
+    type: org.sqlite.SQLiteDataSourc
+
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-alias: localhost
+    key-store-type: JKS
+    key-store: # Your keystore (use classpath: to include from src/main/resources)
+    key-store-password: # Your keystore password
+  use-forward-headers: true
