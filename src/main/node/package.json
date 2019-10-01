@@ -14,7 +14,7 @@
     "csv": "^5.1.1",
     "csv-writer": "^1.5.0",
     "knex": "^0.16.3",
-    "lodash": "^4.17.11",
+    "lodash": ">=4.17.13",
     "parse": "^2.5.1",
     "sqlite3": "latest"
   }
