@@ -53,16 +53,7 @@ public class ContentService {
             map(DestinyManifest::getMobileWorldContentPaths).
             map(m -> m.get("en")).
             orElseThrow(() -> new IllegalStateException("No EN World Content file defined in manifest"));
-
-        ExportResponse exportResponse = download(fileName);
-        if (exportResponse.getAlreadyExported()) {
-            exportResponse.setInventoryItemRowsExported(countInventoryItemRows(exportResponse.getFileId()));
-            exportResponse.setLoreRowsExported(countLoreRows(exportResponse.getFileId()));
-        } else {
-            exportResponse.setInventoryItemRowsExported(exportInventoryItemRows(exportResponse));
-            exportResponse.setLoreRowsExported(exportLoreRows(exportResponse));
-        }
-        return exportResponse;
+        return download(fileName);
     }
 
     private ExportResponse download(String fileName) throws IOException {

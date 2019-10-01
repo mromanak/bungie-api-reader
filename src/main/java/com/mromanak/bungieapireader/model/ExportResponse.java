@@ -12,6 +12,4 @@ public class ExportResponse {
     private Path filePath;
     private Long fileId;
     private Boolean alreadyExported;
-    private Long inventoryItemRowsExported;
-    private Long loreRowsExported;
 }
