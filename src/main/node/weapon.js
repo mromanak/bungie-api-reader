@@ -3,7 +3,7 @@ const StatBlock = require('./statBlock')
 
 class Weapon {
 
-  constructor (rawJson) {
+  constructor (rawJson, plugSets) {
     this.rawJson = rawJson
     this.id = rawJson.hash
     this.name = rawJson.displayProperties.name
@@ -17,14 +17,14 @@ class Weapon {
     this.bucket = parseBucket(rawJson.inventory.bucketTypeHash)
     this.statGroupId = rawJson.stats.statGroupHash
     this.statBlock = this.parseBaseStatBlock(rawJson.investmentStats)
-    this.rolls = this.parseRolls(rawJson.sockets)
+    this.rolls = this.parseRolls(rawJson.sockets, plugSets)
   }
 
-  static parse (json) {
+  static parse (json, plugSets) {
     if (typeof json === 'string') {
-      return new Weapon(JSON.parse(json))
+      return new Weapon(JSON.parse(json), plugSets)
     } else if (typeof json === 'object') {
-      return new Weapon(json)
+      return new Weapon(json, plugSets)
     } else {
       throw new Error(
         `Unexpected type for json parameter. Expected string or object, but got ${typeof json}`)
@@ -39,7 +39,7 @@ class Weapon {
     return baseStatBlock
   }
 
-  parseRolls (sockets) {
+  parseRolls (sockets, plugSets) {
     let rolls = {
       intrinsicPlugId: null,
       fixedRoll: true,
@@ -80,10 +80,12 @@ class Weapon {
         curatedPlugIds.add(plugEntry.plugItemHash)
       }
 
-      if (socketEntry.randomizedPlugItems.length > 0) {
+      let randomizedPlugItems = []
+      if (!_.isUndefined(socketEntry.randomizedPlugSetHash)) {
         rolls.fixedRoll = false
+        randomizedPlugItems = plugSets[socketEntry.randomizedPlugSetHash].reusablePlugItems
       }
-      for (let plugEntry of socketEntry.randomizedPlugItems) {
+      for (let plugEntry of randomizedPlugItems) {
         socket.randomPlugIds.push(plugEntry.plugItemHash)
         randomPlugIds.add(plugEntry.plugItemHash)
       }

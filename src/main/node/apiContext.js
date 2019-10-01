@@ -4,6 +4,7 @@ const _ = require('lodash')
 const Promise = require('bluebird')
 const Mod = require('./mod')
 const ModConfiguration = require('./modConfiguration')
+const PlugSet = require('./PlugSet')
 const StatDefinition = require('./stat')
 const StatGroupDefinition = require('./statGroup')
 const Weapon = require('./weapon')
@@ -21,7 +22,8 @@ class ApiContext {
     this.stats = await this.cacheStats()
     this.statGroupDefinitions = await this.cacheStatGroups()
     this.mods = await this.cacheMods()
-    this.weapons = await this.cacheWeapons()
+    this.plugSets = await this.cachePlugSets()
+    this.weapons = await this.cacheWeapons(this.plugSets)
     return this
   }
 
@@ -128,12 +130,12 @@ class ApiContext {
     return _.values(this.mods)
   }
 
-  cacheWeapons () {
+  cacheWeapons (plugSets) {
     return this.knex.
       select('*').
       from('DestinyInventoryItemDefinition').
       where(this.knex.raw('json_extract(json, \'$.itemType\') = 3')).
-      then((results) => parseResults(Weapon.parse, results))
+      then((results) => parseResults(json => Weapon.parse(json, plugSets), results))
   }
 
   getWeaponById (weaponId) {
@@ -231,6 +233,13 @@ class ApiContext {
         modConfiguration
       }
     })
+  }
+
+  cachePlugSets() {
+    return this.knex.
+      select('*').
+      from('﻿DestinyPlugSetDefinition').
+      then((results) => parseResults(PlugSet.parse, results))
   }
 }
 
