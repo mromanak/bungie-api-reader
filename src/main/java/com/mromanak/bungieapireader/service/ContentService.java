@@ -8,7 +8,7 @@ import lombok.Data;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceBuilder;
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentMap;
 @Service
 public class ContentService {
 
-    @Value("${com.mromanak.scratchDirectory}")
+    @Value("${scratchDirectory}")
     private String scratchDirectory;
 
     private final ConcurrentMap<Path, DataSourceAndTemplates> dataSourceMap = new ConcurrentHashMap<>();

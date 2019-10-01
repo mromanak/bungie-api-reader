@@ -1,3 +1,5 @@
+scratchDirectory: ./data
+
 bungie:
   client:
     clientId: # Your client ID
@@ -10,10 +12,9 @@ bungie:
 
 db:
   metadata:
-    directory: ./data
-    url: jdbc:sqlite:${db.metadata.directory}/metadata.db
+    url: jdbc:sqlite:${scratchDirectory}/metadata.db
     driver-class-name: org.sqlite.JDBC
-    type: org.sqlite.SQLiteDataSourc
+    type: org.sqlite.SQLiteDataSource
 
 server:
   port: 8443

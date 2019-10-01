@@ -33,7 +33,7 @@ public class PublicApiService extends AbstractBungieApiService {
 
     private static final String MANIFEST_PATH = "/Platform/Destiny2/Manifest/";
 
-    @Value("${com.mromanak.scratchDirectory}")
+    @Value("${scratchDirectory}")
     private String scratchDirectory;
 
     private final RestTemplate restTemplate;

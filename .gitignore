@@ -6,3 +6,4 @@ src/main/resources/*.crt
 src/main/resources/*.jks
 src/main/node/scratchpads
 src/main/node/node_modules
+data
