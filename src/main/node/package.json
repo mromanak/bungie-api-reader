@@ -13,7 +13,7 @@
     "bluebird": "^3.5.3",
     "csv": "^5.1.1",
     "csv-writer": "^1.5.0",
-    "knex": "^0.16.3",
+    "knex": "^0.19.5",
     "lodash": ">=4.17.13",
     "parse": "^2.5.1",
     "sqlite3": "latest"
