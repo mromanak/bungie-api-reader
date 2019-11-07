@@ -178,6 +178,9 @@ class ApiContext {
     } else if (sockets.length === 1) {
       let socket = sockets[0]
       let plugIds = getPlugIds(socket)
+      if (_.isEmpty(plugIds)) {
+        return [[]]
+      }
       return _.map(plugIds, (plugId) => [this.getModById(plugId)])
     }
 

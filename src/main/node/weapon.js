@@ -75,7 +75,14 @@ class Weapon {
         curatedPlugIds: [],
         randomPlugIds: []
       }
-      for (let plugEntry of socketEntry.reusablePlugItems) {
+
+      let curatedPlugItems = []
+      if (!_.isUndefined(socketEntry.reusablePlugSetHash)) {
+        curatedPlugItems = plugSets[socketEntry.reusablePlugSetHash].reusablePlugItems
+      } else if (!_.isEmpty(socketEntry.reusablePlugItems)) {
+        curatedPlugItems = socketEntry.reusablePlugItems
+      }
+      for (let plugEntry of curatedPlugItems) {
         socket.curatedPlugIds.push(plugEntry.plugItemHash)
         curatedPlugIds.add(plugEntry.plugItemHash)
       }
@@ -84,6 +91,9 @@ class Weapon {
       if (!_.isUndefined(socketEntry.randomizedPlugSetHash)) {
         rolls.fixedRoll = false
         randomizedPlugItems = plugSets[socketEntry.randomizedPlugSetHash].reusablePlugItems
+      } else if (!_.isEmpty(socketEntry.randomizedPlugItems)) {
+        rolls.fixedRoll = false
+        randomizedPlugItems = socketEntry.randomizedPlugItems
       }
       for (let plugEntry of randomizedPlugItems) {
         socket.randomPlugIds.push(plugEntry.plugItemHash)

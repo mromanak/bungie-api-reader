@@ -84,9 +84,15 @@ public class PublicApiService extends AbstractBungieApiService {
     }
 
     private void createCurrentSoftLink(Path databaseFile) throws IOException {
-        Path softLink = databaseFile.getParent().resolve("current");
-        Files.deleteIfExists(softLink);
-        Files.createSymbolicLink(softLink, databaseFile);
+        Path currentSoftLink = databaseFile.getParent().resolve("current");
+        if (Files.exists(currentSoftLink)) {
+            Path previousSoftLink = databaseFile.getParent().resolve("previous");
+            Files.deleteIfExists(previousSoftLink);
+            Path previousDatabaseFile = Files.readSymbolicLink(currentSoftLink);
+            Files.createSymbolicLink(previousSoftLink, previousDatabaseFile);
+            Files.delete(currentSoftLink);
+        }
+        Files.createSymbolicLink(currentSoftLink, databaseFile.toAbsolutePath());
     }
 
     private void writeToPath(ZipInputStream zipInputStream, Path outputPath) throws IOException {

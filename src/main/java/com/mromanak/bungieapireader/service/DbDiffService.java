@@ -31,7 +31,7 @@ public class DbDiffService {
         this.objectMapper = objectMapper;
     }
 
-    public void createInventoryItemDiffDb(Path newDbPath, Path oldDbPath, Path diffDbPath) {
+    public void createInventoryItemDiffDb(Path newDbPath, Path oldDbPath, Path diffDbPath) throws IOException {
         Objects.requireNonNull(newDbPath, "New DB path must be non-null");
         Objects.requireNonNull(oldDbPath, "Old DB path must be non-null");
         Objects.requireNonNull(diffDbPath, "Diff DB path must be non-null");
@@ -61,8 +61,12 @@ public class DbDiffService {
         initializeInventoryItemDiffDb(diffDbPath, diffEntries);
     }
 
-    private Map<Long, String> readInventoryItemContent(Path dbPath) {
-        String url = "jdbc:sqlite:" + dbPath.toAbsolutePath();
+    private Map<Long, String> readInventoryItemContent(Path dbPath) throws IOException {
+        if (!Files.exists(dbPath)) {
+            throw new IllegalArgumentException("No file at " + dbPath.toAbsolutePath());
+        }
+
+        String url = "jdbc:sqlite:" + dbPath.toRealPath().toAbsolutePath();
         DataSource dataSource = intializeDataSource(url);
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         int count = jdbcTemplate.queryForObject("SELECT count(*) FROM DestinyInventoryItemDefinition", Integer.class);
