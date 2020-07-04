@@ -7,13 +7,13 @@ const knex = require('knex')({
   client: 'sqlite3',
   useNullAsDefault: true,
   connection: {
-    filename: '/Users/mromanak13/Downloads/bungie/bungie/current'
+    filename: './data/current'
   }
 })
 const context = new ApiContext(knex)
 const inverseRegex = /^inv:(.*)/
 
-let relevantStats = ['Range', 'Stability', 'Aim Assistance']
+let relevantStats = ['Stability', 'Range', 'Aim Assistance']
 let displayStats = _.map(relevantStats, (statName) => {
   if (inverseRegex.test(statName)) {
     statName = inverseRegex.exec(statName)[1]
@@ -21,8 +21,8 @@ let displayStats = _.map(relevantStats, (statName) => {
   return statName
 })
 let calculatedStats = [
-  // namedCustomStat('Geo. Mean', geometricMeanOf(...relevantStats)),
-  namedCustomStat('Mods', modsContributing(...relevantStats))
+  namedCustomStat('Mods', modsContributing(...relevantStats)),
+  namedCustomStat(`√(${relevantStats.join(' × ')})`, geometricMeanOf(...relevantStats))
 ]
 const csvStringifier = createCsvStringifier({
   header: [
@@ -32,6 +32,7 @@ const csvStringifier = createCsvStringifier({
     {id: 'rollType', title: 'Roll Type'},
     {id: 'type', title: 'Type'},
     {id: 'detailedArchetype', title: 'Archetype'},
+    {id: 'archetypeId', title: 'Archetype ID'},
     {id: 'damageType', title: 'Damage Type'},
     ..._.map(calculatedStats, (stat) => {return {id: stat.name, title: stat.name}}),
     ..._.map(displayStats, (statName) => {return {id: statName, title: statName}})
@@ -42,7 +43,7 @@ context.ready().
   then(() => {
     let obj = new WeaponChain(context, context.getAllWeapons()).
       withStats(...displayStats).
-      withRarities('Legendary').
+      toConfigurations().
       sortedBy([
         geometricMeanSort(...relevantStats)
       ], 'desc').
@@ -67,7 +68,7 @@ context.ready().
         ]
         return differentiators.join('/')
       }).
-      values()
+      value()
 
     console.log(csvStringifier.getHeaderString().trim())
     console.log(csvStringifier.stringifyRecords(obj))
@@ -121,13 +122,13 @@ function detailedArchetypeForConfig (config) {
   } else if (_.has(config.displayStats, 'Rounds Per Minute')  && config.displayStats['Rounds Per Minute'] !== 0) {
     return `${baseName} (${config.displayStats['Rounds Per Minute']} RPM)`
   }
-  
+
   if (_.has(config, 'rawStats') && _.has(config.rawStats, 'Charge Time')  && config.rawStats['Charge Time'] !== 0) {
     return `${baseName} (${config.rawStats['Charge Time']} ms)`
   } else if (_.has(config.displayStats, 'Charge TIme')  && config.displayStats['Charge TIme'] !== 0) {
     return `${baseName} (${config.displayStats['Charge TIme']} ms)`
   }
-  
+
   if (_.has(config, 'rawStats') && _.has(config.rawStats, 'Draw Time')  && config.rawStats['Draw Time'] !== 0) {
     return `${baseName} (${config.rawStats['Draw Time']} ms)`
   } else if (_.has(config.displayStats, 'Draw TIme')  && config.displayStats['Draw TIme'] !== 0) {

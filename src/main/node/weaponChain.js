@@ -259,6 +259,18 @@ class WeaponChain {
     return this
   }
 
+  thatDoNotUseMods (...nameSpecs) {
+    if (!this.isExpanded) {
+      throw new Error(
+        'thatUseMods() cannot be called before toConfigurations()')
+    }
+
+    let plugSpec = this.context.plugSpecForModNames(...nameSpecs)
+    this.chain = this.chain.
+      filter((config) => !matchesSpec(config.modNames, nameSpecs))
+    return this
+  }
+
   sortedBy (sortFunctions, ...sortDirections) {
     this.chain = this.chain.orderBy(sortFunctions, sortDirections)
     return this

@@ -50,7 +50,7 @@ class Weapon {
     let curatedPlugIds = new Set()
     let randomPlugIds = new Set()
     let perkSocketIndexes = new Set()
-    let weaponPerkSocketCategory = _.first(sockets.socketCategories,
+    let weaponPerkSocketCategory = _.find(sockets.socketCategories,
       (socketCategory) => socketCategory.socketCategoryHash === 4241085061)
     if (weaponPerkSocketCategory) {
       _.each(weaponPerkSocketCategory.socketIndexes, (index) => {
@@ -250,7 +250,7 @@ class Weapon {
     printable.rolls.curatedOnlyPlugIds = [...printable.rolls.curatedOnlyPlugIds]
     printable.rolls.randomPlugIds = [...printable.rolls.randomPlugIds]
     if (_.isUndefined(includeRawJson) || !includeRawJson) {
-      delete printable.rawJson
+      delete printable.raw
     }
     return printable
   }
