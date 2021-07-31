@@ -80,7 +80,7 @@ class ItemExplorer {
 
         let itemCategoryMaps = await this.loadIdAndNameMaps(
             ItemCategory.fromManifestDefinition,
-            'SELECT * FROM DestinyDamageTypeDefinition'
+            'SELECT * FROM DestinyItemCategoryDefinition'
         )
         this.idToItemCategoryMap = itemCategoryMaps.idMap
         this.nameToItemCategoryIdMultiMap = itemCategoryMaps.nameMultiMap
@@ -197,19 +197,19 @@ class ItemExplorer {
     }
 
     itemCategoryIdsFor(nameOrId: string | number): number[] {
-        return this.idsFor(this.idToItemCategoryMap, this.nameToDamageTypIdMultiMap, nameOrId)
+        return this.idsFor(this.idToItemCategoryMap, this.nameToItemCategoryIdMultiMap, nameOrId)
     }
 
     itemCategoryIdsForAny(...namesOrIds: (string | number)[]): number[] {
-        return this.idsForAny(this.idToItemCategoryMap, this.nameToDamageTypIdMultiMap, ...namesOrIds)
+        return this.idsForAny(this.idToItemCategoryMap, this.nameToItemCategoryIdMultiMap, ...namesOrIds)
     }
 
     socketCategoryIdsFor(nameOrId: string | number): number[] {
-        return this.idsFor(this.idToSocketCategoryMap, this.nameToDamageTypIdMultiMap, nameOrId)
+        return this.idsFor(this.idToSocketCategoryMap, this.nameToSocketCategoryIdMultiMap, nameOrId)
     }
 
     socketCategoryIdsForAny(...namesOrIds: (string | number)[]): number[] {
-        return this.idsForAny(this.idToSocketCategoryMap, this.nameToDamageTypIdMultiMap, ...namesOrIds)
+        return this.idsForAny(this.idToSocketCategoryMap, this.nameToSocketCategoryIdMultiMap, ...namesOrIds)
     }
 
     statIdsFor(nameOrId: string | number): number[] {
@@ -367,22 +367,22 @@ class ItemExplorer {
     // Item category predicates
     itemWithItemCategoryPredicate(nameOrId: string | number): (item: InventoryItem) => boolean {
         let itemCategoryIds = new Set(this.itemCategoryIdsFor(nameOrId))
-        return (item: InventoryItem) => this.setHasAny(itemCategoryIds, item.itemCategoryIds)
+        return (item: InventoryItem) => this.setHasAny(itemCategoryIds, [...item.itemCategoryIds])
     }
 
     itemWithItemCategoryInPredicate(...namesOrIds: (string | number)[]): (item: InventoryItem) => boolean {
         let itemCategoryIds = new Set(this.itemCategoryIdsForAny(...namesOrIds))
-        return (item: InventoryItem) => this.setHasAny(itemCategoryIds, item.itemCategoryIds)
+        return (item: InventoryItem) => this.setHasAny(itemCategoryIds, [...item.itemCategoryIds])
     }
 
     itemWithoutItemCategoryPredicate(nameOrId: string | number): (item: InventoryItem) => boolean {
         let itemCategoryIds = new Set(this.itemCategoryIdsFor(nameOrId))
-        return (item: InventoryItem) => !this.setHasAny(itemCategoryIds, item.itemCategoryIds)
+        return (item: InventoryItem) => !this.setHasAny(itemCategoryIds, [...item.itemCategoryIds])
     }
 
     itemWithoutItemCategoryInPredicate(...namesOrIds: (string | number)[]): (item: InventoryItem) => boolean {
         let itemCategoryIds = new Set(this.itemCategoryIdsForAny(...namesOrIds))
-        return (item: InventoryItem) => !this.setHasAny(itemCategoryIds, item.itemCategoryIds)
+        return (item: InventoryItem) => !this.setHasAny(itemCategoryIds, [...item.itemCategoryIds])
     }
 
     // Power cap predicates

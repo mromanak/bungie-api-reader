@@ -1,3 +1,4 @@
+import _ from 'lodash'
 import {createObjectCsvStringifier} from 'csv-writer';
 import {DestinyItemInventoryBlockRarity} from "../model/destinyManifestDefinitions";
 import InventoryItem from "../model/inventoryItem";
@@ -134,11 +135,37 @@ class CsvItemStringifier<T extends InventoryItem> implements Stringifier<T> {
                     title: 'Base Recoil',
                     extractor: this.baseStatExtractorFor(itemExplorer, 'Recoil')
                 }
+            case 'baseBlastRadius':
+                return {
+                    id: column,
+                    title: 'Base Blast Radius',
+                    extractor: CsvItemStringifier.baseStatExtractorFor(itemExplorer, 'Blast Radius')
+                }
+            case 'baseVelocity':
+                return {
+                    id: column,
+                    title: 'Base Velocity',
+                    extractor: CsvItemStringifier.baseStatExtractorFor(itemExplorer, 'Velocity')
+                }
             case 'damageType':
                 return {
                     id: 'damageType',
                     title: 'Damage Type',
                     extractor: item => itemExplorer.idToDamageTypeMap[item.damageTypeId || 0]?.name
+                }
+            case 'traits':
+                return {
+                    id: column,
+                    title: 'Traits',
+                    extractor: item => [...item.traitIds].join('/')
+                }
+            case 'itemCategories':
+                return {
+                    id: column,
+                    title: 'Item Categories',
+                    extractor: item => _.map([...item.itemCategoryIds], id => {
+                        return itemExplorer.idToItemCategoryMap[Number(id)]?.name
+                    }).join('/')
                 }
         }
     }
@@ -186,8 +213,12 @@ type InventoryItemStandardColumnDefinition =
     | 'baseAimAssistance'
     | 'baseReserves'
     | 'baseZoom'
+    | 'baseBlastRadius'
+    | 'baseVelocity'
     | 'baseRecoil'
     | 'damageType'
+    | 'traits'
+    | 'itemCategories'
 
 type CsvColumnType = number | string | undefined
 
@@ -329,6 +360,18 @@ class CsvRollStringifier<T extends WeaponRoll> implements Stringifier<T> {
                     title: 'Base Recoil',
                     extractor: CsvItemStringifier.baseStatExtractorFor(itemExplorer, 'Recoil')
                 }
+            case 'baseBlastRadius':
+                return {
+                    id: column,
+                    title: 'Base Blast Radius',
+                    extractor: CsvItemStringifier.baseStatExtractorFor(itemExplorer, 'Blast Radius')
+                }
+            case 'baseVelocity':
+                return {
+                    id: column,
+                    title: 'Base Velocity',
+                    extractor: CsvItemStringifier.baseStatExtractorFor(itemExplorer, 'Velocity')
+                }
             case 'damageType':
                 return {
                     id: 'damageType',
@@ -401,6 +444,18 @@ class CsvRollStringifier<T extends WeaponRoll> implements Stringifier<T> {
                     title: 'Recoil',
                     extractor: CsvRollStringifier.displayStatExtractorFor(itemExplorer, 'Recoil')
                 }
+            case 'displayBlastRadius':
+                return {
+                    id: column,
+                    title: 'Blast Radius',
+                    extractor: CsvRollStringifier.displayStatExtractorFor(itemExplorer, 'Blast Radius')
+                }
+            case 'displayVelocity':
+                return {
+                    id: column,
+                    title: 'Velocity',
+                    extractor: CsvRollStringifier.displayStatExtractorFor(itemExplorer, 'Velocity')
+                }
             case 'rollType':
                 return {
                     id: column,
@@ -412,6 +467,20 @@ class CsvRollStringifier<T extends WeaponRoll> implements Stringifier<T> {
                     id: column,
                     title: 'Perks',
                     extractor: roll => [...roll.perkBlock.perkNames].join('/')
+                }
+            case 'traits':
+                return {
+                    id: column,
+                    title: 'Traits',
+                    extractor: item => [...item.traitIds].join('/')
+                }
+            case 'itemCategories':
+                return {
+                    id: column,
+                    title: 'Item Categories',
+                    extractor: item => _.map([...item.itemCategoryIds], id => {
+                        return itemExplorer.idToItemCategoryMap[Number(id)]?.name
+                    }).join('/')
                 }
         }
     }
@@ -456,6 +525,8 @@ type WeaponRollStandardColumnDefinition =
     | 'displayReserves'
     | 'displayZoom'
     | 'displayRecoil'
+    | 'displayBlastRadius'
+    | 'displayVelocity'
     | 'rollType'
     | 'perks'
 
