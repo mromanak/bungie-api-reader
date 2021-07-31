@@ -2,6 +2,37 @@ import WeaponRoll from "../model/weaponRoll";
 import AbstractWeaponChain from "./abstractWeaponChain";
 
 abstract class AbstractWeaponRollChain<T extends WeaponRoll> extends AbstractWeaponChain<T> {
+
+    withDisplayStatLt(nameOrId: string | number, value: number): this {
+        let predicate = this.itemExplorer.weaponRollWithDisplayStatLtPredicate(nameOrId, value)
+        this.chain = this.chain.filter(predicate)
+        return this
+    }
+
+    withDisplayStatLte(nameOrId: string | number, value: number): this {
+        let predicate = this.itemExplorer.weaponRollWithDisplayStatLtePredicate(nameOrId, value)
+        this.chain = this.chain.filter(predicate)
+        return this
+    }
+
+    withDisplayStatEq(nameOrId: string | number, value: number): this {
+        let predicate = this.itemExplorer.weaponRollWithDisplayStatEqPredicate(nameOrId, value)
+        this.chain = this.chain.filter(predicate)
+        return this
+    }
+
+    withDisplayStatGte(nameOrId: string | number, value: number): this {
+        let predicate = this.itemExplorer.weaponRollWithDisplayStatGtePredicate(nameOrId, value)
+        this.chain = this.chain.filter(predicate)
+        return this
+    }
+
+    withDisplayStatGt(nameOrId: string | number, value: number): this {
+        let predicate = this.itemExplorer.weaponRollWithDisplayStatGtPredicate(nameOrId, value)
+        this.chain = this.chain.filter(predicate)
+        return this
+    }
+    
     excludingFixedRolls(): this {
         this.chain = this.chain.filter((roll) => roll.perkBlock.isRandomRoll)
         return this

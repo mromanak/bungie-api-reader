@@ -313,7 +313,56 @@ class ItemExplorer {
         return (item: InventoryItem) => !!item.damageTypeId && damageTypeIds.has(item.damageTypeId)
     }
 
-    // Display stat predicates TODO
+    // Display stat predicates
+    weaponRollWithDisplayStatLtPredicate(nameOrId: string | number, value: number): (weaponRoll: WeaponRoll) => boolean {
+        let statIds = this.statIdsFor(nameOrId)
+        return (weaponRoll: WeaponRoll) => {
+            return _.some(statIds, (statId: number) => {
+                return weaponRoll.statIdToBaseValueMap?.[statId] != undefined &&
+                    weaponRoll.getDisplayStatValue(statId) < value
+            })
+        }
+    }
+
+    weaponRollWithDisplayStatLtePredicate(nameOrId: string | number, value: number): (weaponRoll: WeaponRoll) => boolean {
+        let statIds = this.statIdsFor(nameOrId)
+        return (weaponRoll: WeaponRoll) => {
+            return _.some(statIds, (statId: number) => {
+                return weaponRoll.statIdToBaseValueMap?.[statId] != undefined &&
+                    weaponRoll.getDisplayStatValue(statId) <= value
+            })
+        }
+    }
+
+    weaponRollWithDisplayStatEqPredicate(nameOrId: string | number, value: number): (weaponRoll: WeaponRoll) => boolean {
+        let statIds = this.statIdsFor(nameOrId)
+        return (weaponRoll: WeaponRoll) => {
+            return _.some(statIds, (statId: number) => {
+                return weaponRoll.statIdToBaseValueMap?.[statId] != undefined &&
+                    weaponRoll.getDisplayStatValue(statId) == value
+            })
+        }
+    }
+
+    weaponRollWithDisplayStatGtePredicate(nameOrId: string | number, value: number): (weaponRoll: WeaponRoll) => boolean {
+        let statIds = this.statIdsFor(nameOrId)
+        return (weaponRoll: WeaponRoll) => {
+            return _.some(statIds, (statId: number) => {
+                return weaponRoll.statIdToBaseValueMap?.[statId] != undefined &&
+                    weaponRoll.getDisplayStatValue(statId) >= value
+            })
+        }
+    }
+
+    weaponRollWithDisplayStatGtPredicate(nameOrId: string | number, value: number): (weaponRoll: WeaponRoll) => boolean {
+        let statIds = this.statIdsFor(nameOrId)
+        return (weaponRoll: WeaponRoll) => {
+            return _.some(statIds, (statId: number) => {
+                return weaponRoll.statIdToBaseValueMap?.[statId] != undefined &&
+                    weaponRoll.getDisplayStatValue(statId) > value
+            })
+        }
+    }
 
     // Item category predicates
     itemWithItemCategoryPredicate(nameOrId: string | number): (item: InventoryItem) => boolean {
