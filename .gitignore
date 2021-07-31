@@ -4,6 +4,7 @@ target
 src/main/resources/application.yml
 src/main/resources/*.crt
 src/main/resources/*.jks
-src/main/node/scratchpads
+src/main/node/typescript/scratchpads
 src/main/node/node_modules
+venv/
 data
