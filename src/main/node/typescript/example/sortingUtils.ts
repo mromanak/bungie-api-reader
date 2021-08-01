@@ -17,11 +17,16 @@ class GeometricMeanScoringFunction {
         this.header = GeometricMeanScoringFunction.headerFor(...statNamesOrIds)
         this.stats = []
         for (let statNameOrId of statNamesOrIds) {
-            let statIds = itemExplorer.statIdsFor(statNameOrId)
+            let transformedStatOrId = statNameOrId
+            if (typeof statNameOrId == 'string' && inverseRegex.test(statNameOrId)) {
+                transformedStatOrId = statNameOrId.replace(inverseRegex, '')
+            }
+
+            let statIds = itemExplorer.statIdsFor(transformedStatOrId)
             if (statIds.length == 0) {
-                throw new Error(`No stat with name or ID ${statNameOrId}`)
+                throw new Error(`No stat with name or ID ${transformedStatOrId}`)
             } else if (statIds.length > 1) {
-                throw new Error(`Ambiguous stat name ${statNameOrId}. Possible values are: ${statIds.join(', ')}`)
+                throw new Error(`Ambiguous stat name ${transformedStatOrId}. Possible values are: ${statIds.join(', ')}`)
             }
             this.stats.push({
                 id: statIds[0],
@@ -35,10 +40,26 @@ class GeometricMeanScoringFunction {
             if (typeof statNameOrId == 'number') {
                 return `statId:${statNameOrId}`
             }
-            return statNameOrId
+            return statNameOrId.replace(/inv:((?:\w|\s)+)/, '$1⁻¹')
         })
 
-        return `√(${statNames.join(' × ').replace(inverseRegex, '1/')})`
+        let superscriptString = GeometricMeanScoringFunction.toSuperscript(statNames.length)
+        return `${superscriptString}√(${statNames.join(' × ')})`
+    }
+
+    static toSuperscript(number: number): string {
+        let superscriptChars = '⁻˙⁰¹²³⁴⁵⁶⁷⁸⁹'
+        let scriptChars = '-.0123456789'
+        let superscriptString = ''
+        for (let char of String(number)) {
+            let index = scriptChars.indexOf(char)
+            if (index != -1) {
+                superscriptString += superscriptChars.charAt(index)
+            } else {
+                superscriptString += char
+            }
+        }
+        return superscriptString
     }
 
     score(roll: WeaponRoll): number {
