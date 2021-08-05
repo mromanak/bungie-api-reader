@@ -44,7 +44,7 @@ class GeometricMeanScoringFunction {
         })
 
         let superscriptString = GeometricMeanScoringFunction.toSuperscript(statNames.length)
-        return `${superscriptString}√(${statNames.join(' × ')})`
+        return `${superscriptString}√(${statNames.join('×')})`
     }
 
     static toSuperscript(number: number): string {
