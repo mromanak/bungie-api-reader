@@ -138,11 +138,11 @@ class UniqueArchetypeUtils {
                 let rpmStat = roll.displayStatsBlock.statGroup.interpolate(rpmStatId, roll.statIdToBaseValueMap[rpmStatId])
                 let frameIdString = frameId ? ` / id:${frameId}` : ''
                 suffix = ` (${rpmStat} RPM${frameIdString})`
-            } else if (roll.statIdToBaseValueMap?.[chargeTimeStatId] != undefined) {
+            } else if (roll.statIdToBaseValueMap?.[chargeTimeStatId] != undefined && /.*Fusion Rifle$/.test(roll.itemTypeDisplayName)) {
                 let chargeTimeStat = roll.displayStatsBlock.statGroup.interpolate(chargeTimeStatId, roll.statIdToBaseValueMap[chargeTimeStatId])
                 let frameIdString = frameId ? ` / id:${frameId}` : ''
                 suffix = ` (${chargeTimeStat} ms${frameIdString})`
-            } else if (roll.statIdToBaseValueMap?.[drawTimeStatId] != undefined) {
+            } else if (roll.statIdToBaseValueMap?.[drawTimeStatId] != undefined && roll.itemTypeDisplayName == 'Combat Bow') {
                 let drawTimeStat = roll.displayStatsBlock.statGroup.interpolate(drawTimeStatId, roll.statIdToBaseValueMap[drawTimeStatId])
                 let frameIdString = frameId ? ` / id:${frameId}` : ''
                 suffix = ` (${drawTimeStat} ms${frameIdString})`
