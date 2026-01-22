@@ -16,7 +16,7 @@
     "csv-parser": "^3.0.0",
     "csv-writer": "^1.5.0",
     "knex": "^2.4.0",
-    "lodash": "^4.17.21",
+    "lodash": "^4.17.23",
     "parse": "^6.1.1",
     "sqlite3": "^5.1.6",
     "title-case": "^3.0.3",
